@@ -1,6 +1,6 @@
 import UIKit
 
-class AlertPresenter: AlertPresentProtocol {
+final class AlertPresenter: AlertPresentProtocol {
     
     weak var delegate: AlertPresenterDelegate?
     

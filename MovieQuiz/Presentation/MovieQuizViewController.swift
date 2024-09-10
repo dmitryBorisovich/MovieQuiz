@@ -1,6 +1,6 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, AlertPresenterDelegate {
+final class MovieQuizViewController: UIViewController {
     
     // MARK: - Private Properties
     
@@ -38,42 +38,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         statisticService = StatisticService()
         
         questionFactory.requestNextQuestion()
-    }
-    
-    // MARK: - QuestionFactoryDelegate
-    
-    func didRecieveNextQuestion(question: QuizQuestion?) {
-        guard let question = question else { return }
-        currentQuestion = question
-        let viewModel = convert(model: question)
-            
-        DispatchQueue.main.async { [weak self] in
-            self?.show(quiz: viewModel)
-        }
-    }
-    
-    // MARK: - AlertPresenterDelegate
-    
-    func createAlertModel() -> AlertModel {
-        let statistic = statisticService ?? StatisticService()
-        let result = QuizResultsViewModel(
-            title: "Этот раунд окончен!",
-            text: """
-                Ваш результат: \(correctAnswers)/\(questionsAmount)
-                Количество сыгранных квизов: \(statistic.gamesCount)
-                Рекорд: \(statistic.bestGame.correct)/\(questionsAmount) (\(statistic.bestGame.date.dateTimeString))
-                Средняя точность: \(String(format: "%.2f", statistic.totalAccuracy))%
-                """,
-            buttonText: "Сыграть еще раз"
-        )
-        
-        let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
-            self?.currentQuestionIndex = 0
-            self?.correctAnswers = 0
-            self?.questionFactory?.requestNextQuestion()
-        }
-        
-        return alertModel
     }
     
     // MARK: - Private Methods
@@ -129,17 +93,58 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         }
     }
     
+    private func processAnswer(_ answer: Bool) {
+        guard let currentQuestion = currentQuestion else { return }
+        showAnswerResult(isCorrect: currentQuestion.correctAnswer == answer)
+    }
+    
     // MARK: - IB Actions
     
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        let requiredAnswer = true
-        guard let currentQuestion = currentQuestion else { return }
-        showAnswerResult(isCorrect: currentQuestion.correctAnswer == requiredAnswer)
+        processAnswer(true)
     }
     
     @IBAction private func noButtonClicked(_ sender: UIButton) {
-        let requiredAnswer = false
-        guard let currentQuestion = currentQuestion else { return }
-        showAnswerResult(isCorrect: currentQuestion.correctAnswer == requiredAnswer)
+        processAnswer(false)
+    }
+}
+
+// MARK: - Extensions
+
+extension MovieQuizViewController: QuestionFactoryDelegate {
+    
+    func didRecieveNextQuestion(question: QuizQuestion?) {
+        guard let question = question else { return }
+        currentQuestion = question
+        let viewModel = convert(model: question)
+            
+        DispatchQueue.main.async { [weak self] in
+            self?.show(quiz: viewModel)
+        }
+    }
+}
+
+extension MovieQuizViewController: AlertPresenterDelegate {
+    
+    func createAlertModel() -> AlertModel {
+        let statistic = statisticService ?? StatisticService()
+        let result = QuizResultsViewModel(
+            title: "Этот раунд окончен!",
+            text: """
+                Ваш результат: \(correctAnswers)/\(questionsAmount)
+                Количество сыгранных квизов: \(statistic.gamesCount)
+                Рекорд: \(statistic.bestGame.correct)/\(questionsAmount) (\(statistic.bestGame.date.dateTimeString))
+                Средняя точность: \(String(format: "%.2f", statistic.totalAccuracy))%
+                """,
+            buttonText: "Сыграть еще раз"
+        )
+        
+        let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
+            self?.currentQuestionIndex = 0
+            self?.correctAnswers = 0
+            self?.questionFactory?.requestNextQuestion()
+        }
+        
+        return alertModel
     }
 }
