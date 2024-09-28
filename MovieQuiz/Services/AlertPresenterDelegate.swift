@@ -1,5 +1,5 @@
 import Foundation
 
 protocol AlertPresenterDelegate: AnyObject {
-    func createAlertModel() -> AlertModel
+    func createAlertModel(with alertModelType: AlertModelType) -> AlertModel
 }
