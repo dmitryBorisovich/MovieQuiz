@@ -40,7 +40,7 @@ final class MovieQuizViewController: UIViewController {
     // MARK: - Private Methods
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
-        return QuizStepViewModel(
+        QuizStepViewModel(
             image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)"
@@ -65,7 +65,7 @@ final class MovieQuizViewController: UIViewController {
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             self.showNextQuestionOrResults()
             self.imageView.layer.borderWidth = 0
             self.noButton.isEnabled = true
@@ -83,9 +83,8 @@ final class MovieQuizViewController: UIViewController {
             statisticService?.store(game: finishedGame)
             alertPresenter?.showAlert(with: .result)
         } else {
-            currentQuestionIndex += 1
-            
             questionFactory?.requestNextQuestion()
+            currentQuestionIndex += 1
         }
     }
     
@@ -133,9 +132,17 @@ extension MovieQuizViewController: QuestionFactoryDelegate {
         operateLoadingIndicator()
         questionFactory?.requestNextQuestion()
     }
+    
+    func didLoadIncorrectData() {
+        alertPresenter?.showAlert(with: .incorrectData)
+    }
 
     func didFailToLoadData(with error: Error) {
         showNetworkError(message: error)
+    }
+    
+    func didFailToLoadImage() {
+        alertPresenter?.showAlert(with: .imageFail)
     }
 }
 
@@ -173,6 +180,25 @@ extension MovieQuizViewController: AlertPresenterDelegate {
             return AlertModel(
                 title: "Ошибка",
                 message: error.localizedDescription,
+                buttonText: "Попробовать еще раз"
+            ) { [weak self] in
+                self?.currentQuestionIndex = 0
+                self?.correctAnswers = 0
+                self?.questionFactory?.loadData()
+            }
+            
+        case .imageFail:
+            return AlertModel(
+                title: "Что-то пошло не так",
+                message: "Не удалось загрузить изображение",
+                buttonText: "Попробовать еще раз"
+            ) { [weak self] in
+                self?.questionFactory?.requestNextQuestion()
+            }
+        case .incorrectData:
+            return AlertModel(
+                title: "Ошибка",
+                message: "Данные с сервера не удалось корректно обработать",
                 buttonText: "Попробовать еще раз"
             ) { [weak self] in
                 self?.currentQuestionIndex = 0

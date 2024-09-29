@@ -11,4 +11,6 @@ struct AlertModel {
 enum AlertModelType {
     case result
     case networkError(Error)
+    case incorrectData
+    case imageFail
 }
