@@ -7,3 +7,10 @@ struct AlertModel {
     
     let completion: () -> Void
 }
+
+enum AlertModelType {
+    case result
+    case networkError(Error)
+    case incorrectData
+    case imageFail
+}

@@ -21,34 +21,30 @@ final class MovieQuizViewController: UIViewController {
     @IBOutlet private weak var counterLabel: UILabel!
     @IBOutlet private weak var noButton: UIButton!
     @IBOutlet private weak var yesButton: UIButton!
+    @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
     
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let questionFactory = QuestionFactory()
-        questionFactory.delegate = self
-        self.questionFactory = questionFactory
-        
-        let alertPresenter = AlertPresenter()
-        alertPresenter.delegate = self
-        self.alertPresenter = alertPresenter
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         
         statisticService = StatisticService()
         
-        questionFactory.requestNextQuestion()
+        alertPresenter = AlertPresenter(delegate: self)
+        
+        questionFactory?.loadData()
     }
     
     // MARK: - Private Methods
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
-        let question = QuizStepViewModel(
-            image: UIImage(named: model.image) ?? UIImage(),
+        QuizStepViewModel(
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)"
         )
-        return question
     }
     
     private func show(quiz step: QuizStepViewModel) {
@@ -69,7 +65,7 @@ final class MovieQuizViewController: UIViewController {
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             self.showNextQuestionOrResults()
             self.imageView.layer.borderWidth = 0
             self.noButton.isEnabled = true
@@ -85,17 +81,26 @@ final class MovieQuizViewController: UIViewController {
                 date: Date()
             )
             statisticService?.store(game: finishedGame)
-            alertPresenter?.showAlert()
+            alertPresenter?.showAlert(with: .result)
         } else {
-            currentQuestionIndex += 1
-            
             questionFactory?.requestNextQuestion()
+            currentQuestionIndex += 1
         }
     }
     
     private func processAnswer(_ answer: Bool) {
         guard let currentQuestion = currentQuestion else { return }
         showAnswerResult(isCorrect: currentQuestion.correctAnswer == answer)
+    }
+    
+    private func operateLoadingIndicator() {
+        activityIndicator.isHidden.toggle()
+        activityIndicator.isHidden ? activityIndicator.stopAnimating() : activityIndicator.startAnimating()
+    }
+    
+    private func showNetworkError(message: Error) {
+        operateLoadingIndicator()
+        alertPresenter?.showAlert(with: .networkError(message))
     }
     
     // MARK: - IB Actions
@@ -113,7 +118,7 @@ final class MovieQuizViewController: UIViewController {
 
 extension MovieQuizViewController: QuestionFactoryDelegate {
     
-    func didRecieveNextQuestion(question: QuizQuestion?) {
+    func didReceiveNextQuestion(question: QuizQuestion?) {
         guard let question = question else { return }
         currentQuestion = question
         let viewModel = convert(model: question)
@@ -122,29 +127,84 @@ extension MovieQuizViewController: QuestionFactoryDelegate {
             self?.show(quiz: viewModel)
         }
     }
+    
+    func didLoadDataFromServer() {
+        operateLoadingIndicator()
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didLoadIncorrectData() {
+        alertPresenter?.showAlert(with: .incorrectData)
+    }
+
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error)
+    }
+    
+    func didFailToLoadImage() {
+        alertPresenter?.showAlert(with: .imageFail)
+    }
 }
+
 
 extension MovieQuizViewController: AlertPresenterDelegate {
     
-    func createAlertModel() -> AlertModel {
-        let statistic = statisticService ?? StatisticService()
-        let result = QuizResultsViewModel(
-            title: "Этот раунд окончен!",
-            text: """
-                Ваш результат: \(correctAnswers)/\(questionsAmount)
-                Количество сыгранных квизов: \(statistic.gamesCount)
-                Рекорд: \(statistic.bestGame.correct)/\(questionsAmount) (\(statistic.bestGame.date.dateTimeString))
-                Средняя точность: \(String(format: "%.2f", statistic.totalAccuracy))%
-                """,
-            buttonText: "Сыграть еще раз"
-        )
+    func createAlertModel(with alertModelType: AlertModelType) -> AlertModel {
         
-        let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
-            self?.currentQuestionIndex = 0
-            self?.correctAnswers = 0
-            self?.questionFactory?.requestNextQuestion()
+        switch alertModelType {
+            
+        case .result:
+            let statistic = statisticService ?? StatisticService()
+            let result = QuizResultsViewModel(
+                title: "Этот раунд окончен!",
+                text: """
+                    Ваш результат: \(correctAnswers)/\(questionsAmount)
+                    Количество сыгранных квизов: \(statistic.gamesCount)
+                    Рекорд: \(statistic.bestGame.correct)/\(questionsAmount) (\(statistic.bestGame.date.dateTimeString))
+                    Средняя точность: \(String(format: "%.2f", statistic.totalAccuracy))%
+                    """,
+                buttonText: "Сыграть еще раз"
+            )
+            
+            return AlertModel(
+                title: result.title,
+                message: result.text,
+                buttonText: result.buttonText
+            ) { [weak self] in
+                self?.currentQuestionIndex = 0
+                self?.correctAnswers = 0
+                self?.questionFactory?.requestNextQuestion()
+            }
+            
+        case .networkError(let error):
+            return AlertModel(
+                title: "Ошибка",
+                message: error.localizedDescription,
+                buttonText: "Попробовать еще раз"
+            ) { [weak self] in
+                self?.currentQuestionIndex = 0
+                self?.correctAnswers = 0
+                self?.questionFactory?.loadData()
+            }
+            
+        case .imageFail:
+            return AlertModel(
+                title: "Что-то пошло не так",
+                message: "Не удалось загрузить изображение",
+                buttonText: "Попробовать еще раз"
+            ) { [weak self] in
+                self?.questionFactory?.requestNextQuestion()
+            }
+        case .incorrectData:
+            return AlertModel(
+                title: "Ошибка",
+                message: "Данные с сервера не удалось корректно обработать",
+                buttonText: "Попробовать еще раз"
+            ) { [weak self] in
+                self?.currentQuestionIndex = 0
+                self?.correctAnswers = 0
+                self?.questionFactory?.loadData()
+            }
         }
-        
-        return alertModel
     }
 }

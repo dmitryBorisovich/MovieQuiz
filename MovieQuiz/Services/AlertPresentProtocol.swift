@@ -1,5 +1,5 @@
 import Foundation
 
 protocol AlertPresentProtocol {
-    func showAlert()
+    func showAlert(with alertModelType: AlertModelType)
 }
