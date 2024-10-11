@@ -68,8 +68,6 @@ final class MovieQuizPresenter {
         questionFactory?.loadData()
     }
     
-    // MARK: - Private Methods
-    
     func convert(model: QuizQuestion) -> QuizStepViewModel {
         QuizStepViewModel(
             image: UIImage(data: model.image) ?? UIImage(),
@@ -77,6 +75,8 @@ final class MovieQuizPresenter {
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)"
         )
     }
+    
+    // MARK: - Private Methods
     
     private func didAnswer(isCorrectAnswer: Bool) {
         if isCorrectAnswer {
