@@ -8,7 +8,7 @@ final class MovieQuizPresenter {
     
     private var statisticService: StatisticServiceProtocol?
     
-    private weak var viewController: MovieQuizViewController?
+    private weak var viewController: MovieQuizViewControllerProtocol?
     
     private let questionsAmount = 10
     
@@ -18,7 +18,7 @@ final class MovieQuizPresenter {
     
     // MARK: - Initialization
     
-    init(viewController: MovieQuizViewController) {
+    init(viewController: MovieQuizViewControllerProtocol) {
         self.viewController = viewController
         
         statisticService = StatisticService()
@@ -70,12 +70,7 @@ final class MovieQuizPresenter {
     
     // MARK: - Private Methods
     
-    private func showNetworkError(message: Error) {
-        viewController?.operateLoadingIndicator()
-        viewController?.requestAlertPresentation(for: .networkError(message))
-    }
-    
-    private func convert(model: QuizQuestion) -> QuizStepViewModel {
+    func convert(model: QuizQuestion) -> QuizStepViewModel {
         QuizStepViewModel(
             image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
@@ -153,7 +148,7 @@ extension MovieQuizPresenter: QuestionFactoryDelegate {
     }
 
     func didFailToLoadData(with error: Error) {
-        showNetworkError(message: error)
+        viewController?.showNetworkError(message: error)
     }
     
     func didFailToLoadImage() {

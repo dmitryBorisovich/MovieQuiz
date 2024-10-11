@@ -1,6 +1,6 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController {
+final class MovieQuizViewController: UIViewController, MovieQuizViewControllerProtocol {
     
     // MARK: - Private Properties
     
@@ -30,6 +30,11 @@ final class MovieQuizViewController: UIViewController {
     func operateLoadingIndicator() {
         activityIndicator.isHidden.toggle()
         activityIndicator.isHidden ? activityIndicator.stopAnimating() : activityIndicator.startAnimating()
+    }
+    
+    func showNetworkError(message: Error) {
+        operateLoadingIndicator()
+        requestAlertPresentation(for: .networkError(message))
     }
     
     func show(quiz step: QuizStepViewModel) {
